@@ -1,0 +1,35 @@
+# vim:set ft=dockerfile:
+FROM debian:stretch-slim as mxnet-builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    build-essential libopenblas-dev git libopencv-dev \
+    libgtest-dev cmake wget unzip \
+    && cd /usr/src/gtest && cmake CMakeLists.txt && make && cp *.a /usr/lib
+
+RUN git clone --recursive https://github.com/dmlc/mxnet /opt/mxnet && cd /opt/mxnet && \
+    make -j$(nproc) USE_BLAS=openblas && \
+    rm -r build
+
+FROM antonl/coreos-notebook as final
+COPY --from=mxnet-builder /opt/mxnet/lib /opt/mxnet/lib
+COPY --from=mxnet-builder /opt/mxnet/python /opt/mxnet/python
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+       libopenblas-base \
+       libopencv-core2.4v5 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN $CONDA_DIR/bin/conda install --quiet --yes \
+        numpy \
+        scipy \
+	matplotlib \
+    && $CONDA_DIR/bin/conda clean -tipsy
+
+USER core
+WORKDIR /home/core
+ENV PATH="/opt/conda/bin:$PATH" \
+    PYTHONPATH="/opt/mxnet/python"
+CMD ["/bin/bash"]

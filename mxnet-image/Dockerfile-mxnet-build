@@ -1,0 +1,11 @@
+# vim:set ft=dockerfile:
+FROM debian:stretch-slim as mxnet-builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libcblas3 libopenblas-dev git libopencv-dev python-opencv \
+    libgtest-dev cmake wget unzip \
+    && cd /usr/src/gtest && cmake CMakeLists.txt && make && cp *.a /usr/lib
+
+RUN git clone --recursive https://github.com/dmlc/mxnet /opt/mxnet && cd /opt/mxnet && \
+    make -j$(nproc) && \
+    rm -r build
